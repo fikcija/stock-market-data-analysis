@@ -4,11 +4,6 @@ services:
     container_name: namenode
     volumes:
       - namenode:/hadoop/dfs/name
-      - ./src/test:/test
-      - ./data:/data
-      - ./src/hdfs/raw:/hdfs/raw
-      - ./src/hdfs/processed:/hdfs/processed
-      - ./src/hdfs/curated:/hdfs/curated
     environment:
       - CLUSTER_NAME=asvsp
     env_file:
@@ -42,6 +37,8 @@ services:
     container_name: spark-master
     volumes:
       - ./src/batch:/batch
+      - ./data:/data:ro
+      - ./src/config/spark-defaults.conf:/spark/conf/spark-defaults.conf
     ports:
       - 8080:8080
       - 7077:7077
@@ -55,8 +52,13 @@ services:
     container_name: spark-worker1
     depends_on:
       - spark-master
+    volumes:
+      - ./data:/data:ro
+      - ./src/config/spark-defaults.conf:/spark/conf/spark-defaults.conf
     environment:
       - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=3g
     ports:
       - 8081:8081
     env_file:
@@ -73,8 +75,13 @@ services:
     container_name: spark-worker2
     depends_on:
       - spark-master
+    volumes:
+      - ./data:/data:ro
+      - ./src/config/spark-defaults.conf:/spark/conf/spark-defaults.conf
     environment:
       - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=3g
     ports:
       - 8082:8081
     env_file:
@@ -89,6 +96,8 @@ services:
   hive-server:
     image: bde2020/hive:2.3.2-postgresql-metastore
     container_name: hive-server
+    volumes:
+      - ./src/batch:/batch:ro
     env_file:
       - ./src/config/config.env
     environment:
