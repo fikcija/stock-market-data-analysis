@@ -27,7 +27,7 @@ recoveries AS (
         prev_month_return_pct,
         rolling_3month_return
     FROM monthly_ordered
-    -- Recovery: current period ends with positive rolling return after a negative prior month
+
     WHERE prev_month_return_pct < 0
       AND rolling_3month_return > 0
 )
