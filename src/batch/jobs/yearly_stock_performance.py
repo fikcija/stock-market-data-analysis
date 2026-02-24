@@ -5,9 +5,11 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
 HDFS_NAMENODE = os.environ["CORE_CONF_fs_defaultFS"]
+HIVE_METASTORE_URIS = os.environ["HIVE_SITE_CONF_hive_metastore_uris"]
 
 conf = SparkConf().setAppName("YearlyStockPerformance").setMaster("spark://spark-master:7077")
-spark = SparkSession.builder.config(conf=conf).getOrCreate()
+conf.set("hive.metastore.uris", HIVE_METASTORE_URIS)
+spark = SparkSession.builder.config(conf=conf).enableHiveSupport().getOrCreate()
 
 df = spark.read.parquet(HDFS_NAMENODE + "/data/processed/stock_prices/")
 
@@ -46,5 +48,31 @@ yearly_df.write \
     .partitionBy("year") \
     .mode("overwrite") \
     .parquet(HDFS_NAMENODE + "/data/processed/yearly_stock_performance/")
+
+spark.sql("USE stock_analytics")
+spark.sql("DROP TABLE IF EXISTS yearly_stock_performance")
+spark.sql(f"""
+    CREATE EXTERNAL TABLE yearly_stock_performance (
+        ticker STRING,
+        first_trade_date DATE,
+        last_trade_date DATE,
+        trading_days BIGINT,
+        year_open_price DECIMAL(18,6),
+        year_close_price DECIMAL(18,6),
+        year_high_price DECIMAL(18,6),
+        year_low_price DECIMAL(18,6),
+        yearly_return_pct DECIMAL(10,4),
+        total_volume BIGINT,
+        avg_daily_volume BIGINT,
+        avg_daily_return_pct DECIMAL(10,6),
+        stddev_daily_return DECIMAL(10,6),
+        positive_days BIGINT,
+        negative_days BIGINT
+    )
+    PARTITIONED BY (year INT)
+    STORED AS PARQUET
+    LOCATION '{HDFS_NAMENODE}/data/processed/yearly_stock_performance/'
+""")
+spark.sql("MSCK REPAIR TABLE yearly_stock_performance")
 
 spark.stop()

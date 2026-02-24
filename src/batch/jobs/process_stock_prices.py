@@ -5,9 +5,11 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import DecimalType, IntegerType
 
 HDFS_NAMENODE = os.environ["CORE_CONF_fs_defaultFS"]
+HIVE_METASTORE_URIS = os.environ["HIVE_SITE_CONF_hive_metastore_uris"]
 
 conf = SparkConf().setAppName("ProcessStockPrices").setMaster("spark://spark-master:7077")
-spark = SparkSession.builder.config(conf=conf).getOrCreate()
+conf.set("hive.metastore.uris", HIVE_METASTORE_URIS)
+spark = SparkSession.builder.config(conf=conf).enableHiveSupport().getOrCreate()
 
 raw_df = spark.read.parquet(HDFS_NAMENODE + "/data/raw/stock_prices/")
 
@@ -68,5 +70,56 @@ deduped_df.write \
     .partitionBy("year", "month") \
     .mode("overwrite") \
     .parquet(HDFS_NAMENODE + "/data/processed/stock_prices/")
+
+spark.sql("CREATE DATABASE IF NOT EXISTS stock_analytics")
+spark.sql("USE stock_analytics")
+
+spark.sql("DROP TABLE IF EXISTS exchange_dim")
+spark.sql("""
+    CREATE TABLE exchange_dim (
+        exchange_id INT,
+        exchange_name STRING
+    )
+""")
+spark.sql("""
+    INSERT OVERWRITE TABLE exchange_dim
+    SELECT 1, 'nasdaq'
+    UNION ALL SELECT 2, 'nyse'
+    UNION ALL SELECT 3, 'sp500'
+    UNION ALL SELECT 4, 'forbes2000'
+""")
+
+spark.sql("DROP TABLE IF EXISTS ticker_exchanges")
+spark.sql(f"""
+    CREATE EXTERNAL TABLE ticker_exchanges (
+        ticker STRING,
+        exchange_id INT
+    )
+    STORED AS PARQUET
+    LOCATION '{HDFS_NAMENODE}/data/processed/ticker_exchanges/'
+""")
+
+spark.sql("DROP TABLE IF EXISTS stock_prices")
+spark.sql(f"""
+    CREATE EXTERNAL TABLE stock_prices (
+        ticker STRING,
+        trade_date DATE,
+        quarter INT,
+        day_of_week INT,
+        open_price DECIMAL(18,6),
+        high_price DECIMAL(18,6),
+        low_price DECIMAL(18,6),
+        close_price DECIMAL(18,6),
+        adjusted_close_price DECIMAL(18,6),
+        volume BIGINT,
+        daily_range DECIMAL(18,6),
+        daily_change DECIMAL(18,6),
+        daily_change_pct DECIMAL(10,6)
+    )
+    PARTITIONED BY (year INT, month INT)
+    STORED AS PARQUET
+    LOCATION '{HDFS_NAMENODE}/data/processed/stock_prices/'
+""")
+spark.sql("MSCK REPAIR TABLE stock_prices")
 
 spark.stop()

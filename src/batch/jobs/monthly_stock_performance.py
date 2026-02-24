@@ -5,9 +5,11 @@ from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
 HDFS_NAMENODE = os.environ["CORE_CONF_fs_defaultFS"]
+HIVE_METASTORE_URIS = os.environ["HIVE_SITE_CONF_hive_metastore_uris"]
 
 conf = SparkConf().setAppName("MonthlyStockPerformance").setMaster("spark://spark-master:7077")
-spark = SparkSession.builder.config(conf=conf).getOrCreate()
+conf.set("hive.metastore.uris", HIVE_METASTORE_URIS)
+spark = SparkSession.builder.config(conf=conf).enableHiveSupport().getOrCreate()
 
 df = spark.read.parquet(HDFS_NAMENODE + "/data/processed/stock_prices/")
 
@@ -49,5 +51,30 @@ monthly_df.write \
     .partitionBy("year", "month") \
     .mode("overwrite") \
     .parquet(HDFS_NAMENODE + "/data/processed/monthly_stock_performance/")
+
+spark.sql("USE stock_analytics")
+spark.sql("DROP TABLE IF EXISTS monthly_stock_performance")
+spark.sql(f"""
+    CREATE EXTERNAL TABLE monthly_stock_performance (
+        ticker STRING,
+        first_trade_date DATE,
+        last_trade_date DATE,
+        trading_days BIGINT,
+        month_open_price DECIMAL(18,6),
+        month_close_price DECIMAL(18,6),
+        month_high_price DECIMAL(18,6),
+        month_low_price DECIMAL(18,6),
+        monthly_return_pct DECIMAL(10,4),
+        total_volume BIGINT,
+        avg_daily_volume BIGINT,
+        avg_intraday_range DECIMAL(18,6),
+        max_intraday_range DECIMAL(18,6),
+        avg_intraday_range_pct DECIMAL(10,4)
+    )
+    PARTITIONED BY (year INT, month INT)
+    STORED AS PARQUET
+    LOCATION '{HDFS_NAMENODE}/data/processed/monthly_stock_performance/'
+""")
+spark.sql("MSCK REPAIR TABLE monthly_stock_performance")
 
 spark.stop()

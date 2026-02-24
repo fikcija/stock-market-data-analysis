@@ -6,9 +6,11 @@ from pyspark.sql.types import LongType
 from pyspark.sql.window import Window
 
 HDFS_NAMENODE = os.environ["CORE_CONF_fs_defaultFS"]
+HIVE_METASTORE_URIS = os.environ["HIVE_SITE_CONF_hive_metastore_uris"]
 
 conf = SparkConf().setAppName("DailyStockMetrics").setMaster("spark://spark-master:7077")
-spark = SparkSession.builder.config(conf=conf).getOrCreate()
+conf.set("hive.metastore.uris", HIVE_METASTORE_URIS)
+spark = SparkSession.builder.config(conf=conf).enableHiveSupport().getOrCreate()
 
 df = spark.read.parquet(HDFS_NAMENODE + "/data/processed/stock_prices/")
 
@@ -44,5 +46,34 @@ daily_df.write \
     .partitionBy("year") \
     .mode("overwrite") \
     .parquet(HDFS_NAMENODE + "/data/processed/daily_stock_metrics/")
+
+spark.sql("USE stock_analytics")
+spark.sql("DROP TABLE IF EXISTS daily_stock_metrics")
+spark.sql(f"""
+    CREATE EXTERNAL TABLE daily_stock_metrics (
+        ticker STRING,
+        trade_date DATE,
+        open_price DECIMAL(18,6),
+        high_price DECIMAL(18,6),
+        low_price DECIMAL(18,6),
+        close_price DECIMAL(18,6),
+        adjusted_close_price DECIMAL(18,6),
+        volume BIGINT,
+        daily_change_pct DECIMAL(10,6),
+        prev_close_price DECIMAL(18,6),
+        avg_volume_20d BIGINT,
+        avg_volume_7d BIGINT,
+        volume_ratio DOUBLE,
+        is_volume_spike BOOLEAN,
+        is_significant_drop BOOLEAN,
+        rolling_volatility_30d DOUBLE,
+        rolling_high_7d DECIMAL(18,6),
+        rolling_low_7d DECIMAL(18,6)
+    )
+    PARTITIONED BY (year INT)
+    STORED AS PARQUET
+    LOCATION '{HDFS_NAMENODE}/data/processed/daily_stock_metrics/'
+""")
+spark.sql("MSCK REPAIR TABLE daily_stock_metrics")
 
 spark.stop()
