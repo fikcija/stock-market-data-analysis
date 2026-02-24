@@ -1,3 +1,4 @@
 data/*
 docs/records/*
 .env
+.DS_Store
