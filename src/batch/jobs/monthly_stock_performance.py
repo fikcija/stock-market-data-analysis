@@ -60,16 +60,16 @@ spark.sql(f"""
         first_trade_date DATE,
         last_trade_date DATE,
         trading_days BIGINT,
-        month_open_price DECIMAL(18,6),
-        month_close_price DECIMAL(18,6),
-        month_high_price DECIMAL(18,6),
-        month_low_price DECIMAL(18,6),
-        monthly_return_pct DECIMAL(10,4),
+        month_open_price DOUBLE,
+        month_close_price DOUBLE,
+        month_high_price DOUBLE,
+        month_low_price DOUBLE,
+        monthly_return_pct DOUBLE,
         total_volume BIGINT,
         avg_daily_volume BIGINT,
-        avg_intraday_range DECIMAL(18,6),
-        max_intraday_range DECIMAL(18,6),
-        avg_intraday_range_pct DECIMAL(10,4)
+        avg_intraday_range DOUBLE,
+        max_intraday_range DOUBLE,
+        avg_intraday_range_pct DOUBLE
     )
     PARTITIONED BY (year INT, month INT)
     STORED AS PARQUET

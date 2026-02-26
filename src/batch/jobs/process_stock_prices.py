@@ -2,7 +2,7 @@ import os
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import DecimalType, IntegerType
+from pyspark.sql.types import IntegerType, DoubleType
 
 HDFS_NAMENODE = os.environ["CORE_CONF_fs_defaultFS"]
 HIVE_METASTORE_URIS = os.environ["HIVE_SITE_CONF_hive_metastore_uris"]
@@ -19,11 +19,12 @@ df = raw_df \
     .withColumn("month", F.month(F.col("trade_date"))) \
     .withColumn("quarter", F.quarter(F.col("trade_date"))) \
     .withColumn("day_of_week", F.dayofweek(F.col("trade_date"))) \
-    .withColumnRenamed("open", "open_price") \
-    .withColumnRenamed("high", "high_price") \
-    .withColumnRenamed("low", "low_price") \
-    .withColumnRenamed("close", "close_price") \
-    .withColumnRenamed("adjusted_close", "adjusted_close_price") \
+    .withColumn("open_price", F.col("open").cast(DoubleType())) \
+    .withColumn("high_price", F.col("high").cast(DoubleType())) \
+    .withColumn("low_price", F.col("low").cast(DoubleType())) \
+    .withColumn("close_price", F.col("close").cast(DoubleType())) \
+    .withColumn("adjusted_close_price", F.col("adjusted_close").cast(DoubleType())) \
+    .drop("open", "high", "low", "close", "adjusted_close") \
     .filter(
         F.col("trade_date").isNotNull() &
         (F.col("open_price") > 0) &
@@ -63,7 +64,7 @@ deduped_df = df \
     .withColumn("daily_change_pct",
         F.when(F.col("open_price") > 0,
             ((F.col("close_price") - F.col("open_price")) / F.col("open_price")) * 100
-        ).otherwise(None).cast(DecimalType(10, 6))
+        ).otherwise(None)
     )
 
 deduped_df.write \
@@ -106,15 +107,15 @@ spark.sql(f"""
         trade_date DATE,
         quarter INT,
         day_of_week INT,
-        open_price DECIMAL(18,6),
-        high_price DECIMAL(18,6),
-        low_price DECIMAL(18,6),
-        close_price DECIMAL(18,6),
-        adjusted_close_price DECIMAL(18,6),
+        open_price DOUBLE,
+        high_price DOUBLE,
+        low_price DOUBLE,
+        close_price DOUBLE,
+        adjusted_close_price DOUBLE,
         volume BIGINT,
-        daily_range DECIMAL(18,6),
-        daily_change DECIMAL(18,6),
-        daily_change_pct DECIMAL(10,6)
+        daily_range DOUBLE,
+        daily_change DOUBLE,
+        daily_change_pct DOUBLE
     )
     PARTITIONED BY (year INT, month INT)
     STORED AS PARQUET

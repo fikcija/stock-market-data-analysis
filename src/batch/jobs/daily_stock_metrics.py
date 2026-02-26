@@ -53,22 +53,22 @@ spark.sql(f"""
     CREATE EXTERNAL TABLE daily_stock_metrics (
         ticker STRING,
         trade_date DATE,
-        open_price DECIMAL(18,6),
-        high_price DECIMAL(18,6),
-        low_price DECIMAL(18,6),
-        close_price DECIMAL(18,6),
-        adjusted_close_price DECIMAL(18,6),
+        open_price DOUBLE,
+        high_price DOUBLE,
+        low_price DOUBLE,
+        close_price DOUBLE,
+        adjusted_close_price DOUBLE,
         volume BIGINT,
-        daily_change_pct DECIMAL(10,6),
-        prev_close_price DECIMAL(18,6),
+        daily_change_pct DOUBLE,
+        prev_close_price DOUBLE,
         avg_volume_20d BIGINT,
         avg_volume_7d BIGINT,
         volume_ratio DOUBLE,
         is_volume_spike BOOLEAN,
         is_significant_drop BOOLEAN,
         rolling_volatility_30d DOUBLE,
-        rolling_high_7d DECIMAL(18,6),
-        rolling_low_7d DECIMAL(18,6)
+        rolling_high_7d DOUBLE,
+        rolling_low_7d DOUBLE
     )
     PARTITIONED BY (year INT)
     STORED AS PARQUET
