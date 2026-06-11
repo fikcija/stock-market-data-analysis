@@ -30,21 +30,18 @@ monthly_df = ranked_df.groupBy("ticker", "year", "month").agg(
     F.min("low_price").alias("month_low_price"),
     F.sum("volume").alias("total_volume"),
     F.round(F.avg("volume"), 0).cast("bigint").alias("avg_daily_volume"),
-    F.round(F.avg("daily_range"), 6).alias("avg_intraday_range"),
+    F.avg("daily_range").alias("avg_intraday_range"),
     F.max("daily_range").alias("max_intraday_range"),
-    F.round(F.avg(
+    F.avg(
         F.when(F.col("open_price") > 0,
             (F.col("daily_range") / F.col("open_price")) * 100
         ).otherwise(None)
-    ), 4).alias("avg_intraday_range_pct"),
+    ).alias("avg_intraday_range_pct"),
 ).withColumn(
     "monthly_return_pct",
-    F.round(
-        F.when(F.col("month_open_price") > 0,
-            ((F.col("month_close_price") - F.col("month_open_price")) / F.col("month_open_price")) * 100
-        ).otherwise(None),
-        4
-    )
+    F.when(F.col("month_open_price") > 0,
+        ((F.col("month_close_price") - F.col("month_open_price")) / F.col("month_open_price")) * 100
+    ).otherwise(None)
 )
 
 monthly_df.write \

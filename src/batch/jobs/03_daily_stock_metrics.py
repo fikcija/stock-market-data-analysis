@@ -27,12 +27,12 @@ daily_df = df \
     .withColumn("rolling_low_7d", F.min("low_price").over(window_7d)) \
     .withColumn("volume_ratio",
         F.when(F.col("avg_volume_20d") > 0,
-            F.round(F.col("volume") / F.col("avg_volume_20d"), 4)
+            F.col("volume") / F.col("avg_volume_20d")
         ).otherwise(None)
     ) \
     .withColumn("is_volume_spike", F.col("volume_ratio") > 2.0) \
     .withColumn("is_significant_drop", F.col("daily_change_pct") < -10) \
-    .withColumn("rolling_volatility_30d", F.round(F.stddev("daily_change_pct").over(window_30d), 6)) \
+    .withColumn("rolling_volatility_30d", F.stddev("daily_change_pct").over(window_30d)) \
     .select(
         "ticker", "trade_date", "year",
         "open_price", "high_price", "low_price", "close_price", "adjusted_close_price",
