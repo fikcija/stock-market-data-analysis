@@ -1,4 +1,3 @@
-USE stock_analytics;
 
 WITH ranked AS (
     SELECT

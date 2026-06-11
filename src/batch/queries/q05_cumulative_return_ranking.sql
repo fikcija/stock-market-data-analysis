@@ -1,4 +1,3 @@
-USE stock_analytics;
 
 WITH cumulative AS (
     SELECT

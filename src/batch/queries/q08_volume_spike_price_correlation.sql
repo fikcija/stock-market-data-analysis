@@ -1,4 +1,3 @@
-USE stock_analytics;
 
 WITH spike_days AS (
     SELECT
