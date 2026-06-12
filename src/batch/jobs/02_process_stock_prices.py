@@ -36,7 +36,22 @@ df = raw_df \
         (F.col("high_price") >= F.col("low_price"))
     )
 
-ticker_exchanges_df = df \
+deduped_df = df \
+    .select(
+        "ticker", "trade_date", "year", "month", "quarter", "day_of_week",
+        "open_price", "high_price", "low_price", "close_price", "adjusted_close_price", "volume",
+        "source_exchange"
+    ) \
+    .dropDuplicates(["ticker", "trade_date"]) \
+    .withColumn("daily_range", F.col("high_price") - F.col("low_price")) \
+    .withColumn("daily_change", F.col("close_price") - F.col("open_price")) \
+    .withColumn("daily_change_pct",
+        F.when(F.col("open_price") > 0,
+            ((F.col("close_price") - F.col("open_price")) / F.col("open_price")) * 100
+        ).otherwise(None)
+    )
+
+ticker_exchanges_df = deduped_df \
     .select("ticker", "source_exchange") \
     .distinct() \
     .withColumn("exchange_id",
@@ -52,22 +67,7 @@ ticker_exchanges_df.write \
     .mode("overwrite") \
     .parquet(HDFS_NAMENODE + "/data/processed/ticker_exchanges/")
 
-
-deduped_df = df \
-    .select(
-        "ticker", "trade_date", "year", "month", "quarter", "day_of_week",
-        "open_price", "high_price", "low_price", "close_price", "adjusted_close_price", "volume"
-    ) \
-    .dropDuplicates(["ticker", "trade_date"]) \
-    .withColumn("daily_range", F.col("high_price") - F.col("low_price")) \
-    .withColumn("daily_change", F.col("close_price") - F.col("open_price")) \
-    .withColumn("daily_change_pct",
-        F.when(F.col("open_price") > 0,
-            ((F.col("close_price") - F.col("open_price")) / F.col("open_price")) * 100
-        ).otherwise(None)
-    )
-
-deduped_df.write \
+deduped_df.drop("source_exchange").write \
     .partitionBy("year", "month") \
     .mode("overwrite") \
     .parquet(HDFS_NAMENODE + "/data/processed/stock_prices/")
@@ -75,19 +75,27 @@ deduped_df.write \
 spark.sql("CREATE DATABASE IF NOT EXISTS stock_analytics")
 spark.sql("USE stock_analytics")
 
+from pyspark.sql.types import StructType, StructField, StringType
+
+exchange_dim_df = spark.createDataFrame(
+    [(1, "nasdaq"), (2, "nyse"), (3, "sp500"), (4, "forbes2000")],
+    StructType([
+        StructField("exchange_id", IntegerType(), False),
+        StructField("exchange_name", StringType(), False),
+    ])
+)
+exchange_dim_df.write \
+    .mode("overwrite") \
+    .parquet(HDFS_NAMENODE + "/data/processed/exchange_dim/")
+
 spark.sql("DROP TABLE IF EXISTS exchange_dim")
-spark.sql("""
-    CREATE TABLE exchange_dim (
+spark.sql(f"""
+    CREATE EXTERNAL TABLE exchange_dim (
         exchange_id INT,
         exchange_name STRING
     )
-""")
-spark.sql("""
-    INSERT OVERWRITE TABLE exchange_dim
-    SELECT 1, 'nasdaq'
-    UNION ALL SELECT 2, 'nyse'
-    UNION ALL SELECT 3, 'sp500'
-    UNION ALL SELECT 4, 'forbes2000'
+    STORED AS PARQUET
+    LOCATION '{HDFS_NAMENODE}/data/processed/exchange_dim/'
 """)
 
 spark.sql("DROP TABLE IF EXISTS ticker_exchanges")

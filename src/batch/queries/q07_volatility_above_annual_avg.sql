@@ -1,4 +1,3 @@
-USE stock_analytics;
 
 WITH volatility_with_avg AS (
     SELECT

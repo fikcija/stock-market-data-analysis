@@ -67,7 +67,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: streaming
+      POSTGRES_DB: stock_analytics
     ports:
       - 5433:5432
     volumes:
@@ -89,8 +89,10 @@ services:
     container_name: spark-master
     volumes:
       - ./src/batch:/batch
+      - ./src/batch/queries:/queries
       - ./data:/data:ro
       - ./src/config/spark-defaults.conf:/spark/conf/spark-defaults.conf
+      - ./src/config/hive-site.xml:/spark/conf/hive-site.xml
       - ./src/stream:/stream
       - ./data/streaming:/streaming_data:ro
     ports:
@@ -100,6 +102,12 @@ services:
       - PYSPARK_PYTHON=python3
     env_file:
       - ./src/config/config.env
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          memory: 1G
 
   spark-worker1:
     image: bde2020/spark-worker:3.0.1-hadoop3.2
@@ -109,6 +117,7 @@ services:
     volumes:
       - ./data:/data:ro
       - ./src/config/spark-defaults.conf:/spark/conf/spark-defaults.conf
+      - ./src/config/hive-site.xml:/spark/conf/hive-site.xml
       - ./src/stream:/stream
       - ./data/streaming:/streaming_data:ro
     environment:
@@ -122,9 +131,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 5G
         reservations:
-          memory: 2G
+          memory: 3G
 
   spark-worker2:
     image: bde2020/spark-worker:3.0.1-hadoop3.2
@@ -134,6 +143,7 @@ services:
     volumes:
       - ./data:/data:ro
       - ./src/config/spark-defaults.conf:/spark/conf/spark-defaults.conf
+      - ./src/config/hive-site.xml:/spark/conf/hive-site.xml
       - ./src/stream:/stream
       - ./data/streaming:/streaming_data:ro
     environment:
@@ -147,9 +157,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 5G
         reservations:
-          memory: 2G
+          memory: 3G
 
   hive-server:
     image: bde2020/hive:2.3.2-postgresql-metastore
@@ -164,6 +174,18 @@ services:
     ports:
       - "10000:10000"
 
+  hive-init:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-init
+    depends_on:
+      hive-metastore-postgresql:
+        condition: service_healthy
+    entrypoint: /bin/bash
+    command: /scripts/init_hive_schema.sh
+    volumes:
+      - ./src/scripts:/scripts
+    restart: "no"
+
   hive-metastore:
     image: bde2020/hive:2.3.2-postgresql-metastore
     container_name: hive-metastore
@@ -173,8 +195,8 @@ services:
     environment:
       SERVICE_PRECONDITION: "namenode:9870 datanode1:9864 datanode2:9864 hive-metastore-postgresql:5432"
     depends_on:
-      hive-metastore-postgresql:
-        condition: service_healthy
+      hive-init:
+        condition: service_completed_successfully
     ports:
       - "9083:9083"
 

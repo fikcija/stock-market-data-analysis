@@ -1,4 +1,3 @@
-USE stock_analytics;
 
 WITH monthly_flags AS (
     SELECT

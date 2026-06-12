@@ -2,12 +2,15 @@ import os
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType, DecimalType, LongType
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType, LongType
 
 HDFS_NAMENODE = os.environ["CORE_CONF_fs_defaultFS"]
+HIVE_METASTORE_URIS = os.environ["HIVE_SITE_CONF_hive_metastore_uris"]
 
 conf = SparkConf().setAppName("LoadRawLayer").setMaster("spark://spark-master:7077")
-spark = SparkSession.builder.config(conf=conf).getOrCreate()
+conf.set("hive.metastore.uris", HIVE_METASTORE_URIS)
+
+spark = SparkSession.builder.config(conf=conf).enableHiveSupport().getOrCreate()
 
 schema = StructType([
     StructField("Date", StringType(), True),
@@ -31,6 +34,7 @@ for exchange in exchanges:
 
     df = spark.read \
         .option("header", "true") \
+        .option("mergeSchema", "false") \
         .schema(schema) \
         .csv(f"{csv_path}*.csv") \
         .withColumn("_input_file", F.input_file_name()) \
@@ -38,17 +42,16 @@ for exchange in exchanges:
         .select(
             F.col("ticker"),
             F.to_date(F.col("Date"), "dd-MM-yyyy").alias("date"),
-            F.col("Open").cast(DecimalType(18, 6)).alias("open"),
-            F.col("High").cast(DecimalType(18, 6)).alias("high"),
-            F.col("Low").cast(DecimalType(18, 6)).alias("low"),
-            F.col("Close").cast(DecimalType(18, 6)).alias("close"),
-            F.col("Adjusted Close").cast(DecimalType(18, 6)).alias("adjusted_close"),
+            F.col("Open").cast(DoubleType()).alias("open"),
+            F.col("High").cast(DoubleType()).alias("high"),
+            F.col("Low").cast(DoubleType()).alias("low"),
+            F.col("Close").cast(DoubleType()).alias("close"),
+            F.col("Adjusted Close").cast(DoubleType()).alias("adjusted_close"),
             F.col("Volume").cast(LongType()).alias("volume"),
             F.lit(exchange).alias("source_exchange"),
             F.current_timestamp().alias("ingestion_timestamp")
-        )
-
-    print(f"{exchange}: {df.count()} records")
+        ) \
+        .filter(F.col("date") >= "1993-01-01")
 
     df.write \
         .mode("overwrite") \

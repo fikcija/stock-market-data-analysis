@@ -1,4 +1,3 @@
-USE stock_analytics;
 
 WITH exchange_yearly_avg AS (
     SELECT

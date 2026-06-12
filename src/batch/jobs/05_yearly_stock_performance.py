@@ -30,18 +30,15 @@ yearly_df = ranked_df.groupBy("ticker", "year").agg(
     F.min("low_price").alias("year_low_price"),
     F.sum("volume").alias("total_volume"),
     F.round(F.avg("volume"), 0).cast("bigint").alias("avg_daily_volume"),
-    F.round(F.avg("daily_change_pct"), 6).alias("avg_daily_return_pct"),
-    F.round(F.stddev("daily_change_pct"), 6).alias("stddev_daily_return"),
+    F.avg("daily_change_pct").alias("avg_daily_return_pct"),
+    F.stddev("daily_change_pct").alias("stddev_daily_return"),
     F.sum(F.when(F.col("daily_change_pct") > 0, 1).otherwise(0)).alias("positive_days"),
     F.sum(F.when(F.col("daily_change_pct") < 0, 1).otherwise(0)).alias("negative_days"),
 ).withColumn(
     "yearly_return_pct",
-    F.round(
-        F.when(F.col("year_open_price") > 0,
-            ((F.col("year_close_price") - F.col("year_open_price")) / F.col("year_open_price")) * 100
-        ).otherwise(None),
-        4
-    )
+    F.when(F.col("year_open_price") > 0,
+        ((F.col("year_close_price") - F.col("year_open_price")) / F.col("year_open_price")) * 100
+    ).otherwise(None)
 )
 
 yearly_df.write \
