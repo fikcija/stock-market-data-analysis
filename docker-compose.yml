@@ -105,9 +105,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3G
+          memory: 5.5G
         reservations:
-          memory: 1G
+          memory: 2G
 
   spark-worker1:
     image: bde2020/spark-worker:3.0.1-hadoop3.2
@@ -123,7 +123,7 @@ services:
     environment:
       - SPARK_MASTER=spark://spark-master:7077
       - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=3g
+      - SPARK_WORKER_MEMORY=2g
     ports:
       - 8081:8081
     env_file:
@@ -131,9 +131,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 5G
+          memory: 3.5G
         reservations:
-          memory: 3G
+          memory: 2G
 
   spark-worker2:
     image: bde2020/spark-worker:3.0.1-hadoop3.2
@@ -149,7 +149,7 @@ services:
     environment:
       - SPARK_MASTER=spark://spark-master:7077
       - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=3g
+      - SPARK_WORKER_MEMORY=2g
     ports:
       - 8082:8081
     env_file:
@@ -157,9 +157,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 5G
+          memory: 3.5G
         reservations:
-          memory: 3G
+          memory: 2G
 
   hive-server:
     image: bde2020/hive:2.3.2-postgresql-metastore
