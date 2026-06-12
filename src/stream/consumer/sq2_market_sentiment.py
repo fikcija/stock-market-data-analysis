@@ -13,7 +13,7 @@ from pyspark.sql.types import DoubleType, LongType, StringType, StructField, Str
 import os
 
 KAFKA_BROKERS = "kafka1:29092"
-JDBC_URL = "jdbc:postgresql://pg:5432/streaming"
+JDBC_URL = "jdbc:postgresql://pg:5432/stock_analytics"
 JDBC_DRIVER = "org.postgresql.Driver"
 
 trade_schema = StructType([
@@ -64,7 +64,7 @@ trades = (
     spark.readStream.format("kafka")
     .option("kafka.bootstrap.servers", KAFKA_BROKERS)
     .option("subscribe", "stock_trades")
-    .option("startingOffsets", "earliest")
+    .option("startingOffsets", "latest")
     .load()
     .select(from_json(col("value").cast("string"), trade_schema).alias("d"))
     .select("d.*")
@@ -115,6 +115,7 @@ def save_to_postgres(batch_df, batch_id):
             col("sentiment_ratio"),
         )
         .filter((col("rising_count") + col("falling_count")) > 0)
+        .distinct()
     )
 
     result.write.format("jdbc") \
