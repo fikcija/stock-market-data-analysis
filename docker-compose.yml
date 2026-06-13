@@ -259,6 +259,24 @@ services:
       - resourcemanager
       - historyserver
 
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    restart: always
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: stock_analytics
+      MB_DB_PORT: 5432
+      MB_DB_USER: postgres
+      MB_DB_PASS: postgres
+      MB_DB_HOST: pg
+    ports:
+      - "3000:3000"
+    depends_on:
+      - pg
+    volumes:
+      - metabase_data:/metabase-data
+
 volumes:
   namenode:
   datanode1:
@@ -266,3 +284,4 @@ volumes:
   zoo1_data:
   kafka1_data:
   pg_data:
+  metabase_data:
