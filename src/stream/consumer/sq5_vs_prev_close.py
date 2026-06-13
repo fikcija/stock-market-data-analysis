@@ -14,7 +14,7 @@ from pyspark.sql.types import DoubleType, LongType, StringType, StructField, Str
 import os
 
 KAFKA_BROKERS = "kafka1:29092"
-JDBC_URL = "jdbc:postgresql://pg:5432/streaming"
+JDBC_URL = "jdbc:postgresql://pg:5432/stock_analytics"
 JDBC_DRIVER = "org.postgresql.Driver"
 
 trade_schema = StructType([
@@ -63,7 +63,7 @@ trades = (
     spark.readStream.format("kafka")
     .option("kafka.bootstrap.servers", KAFKA_BROKERS)
     .option("subscribe", "stock_trades")
-    .option("startingOffsets", "earliest")
+    .option("startingOffsets", "latest")
     .load()
     .select(from_json(col("value").cast("string"), trade_schema).alias("d"))
     .select("d.*")
@@ -72,20 +72,19 @@ trades = (
     .filter(col("price").isNotNull() & (col("price") > 0))
 )
 
-windowed = (
-    trades
-    .groupBy(window("event_time", "1 minute"), col("symbol"))
-    .agg(avg("price").alias("current_price"))
-)
-
-
 def save_to_postgres(batch_df, batch_id):
     if batch_df.rdd.isEmpty():
         return
 
     from pyspark.sql.functions import broadcast
 
-    joined = batch_df.join(broadcast(prev_close_df), on="symbol", how="inner")
+    windowed = (
+        batch_df
+        .groupBy(window("event_time", "1 minute"), col("symbol"))
+        .agg(avg("price").alias("current_price"))
+    )
+
+    joined = windowed.join(broadcast(prev_close_df), on="symbol", how="inner")
 
     result = (
         joined
@@ -111,6 +110,7 @@ def save_to_postgres(batch_df, batch_id):
             col("deviation_pct"),
             col("direction"),
         )
+        .distinct()
     )
 
     result.write.format("jdbc") \
@@ -124,8 +124,8 @@ def save_to_postgres(batch_df, batch_id):
 
 
 query = (
-    windowed.writeStream
-    .outputMode("update")
+    trades.writeStream
+    .outputMode("append")
     .trigger(processingTime="30 seconds")
     .foreachBatch(save_to_postgres)
     .option("checkpointLocation", "/tmp/ckpt/sq5")
