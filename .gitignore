@@ -2,3 +2,6 @@ data/*
 docs/plans/*
 .env
 .DS_Store
+airflow/logs/*
+__pycache__/
+*.pyc
