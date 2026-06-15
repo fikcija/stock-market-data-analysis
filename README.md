@@ -258,3 +258,14 @@ The Finnhub producer starts automatically with `docker-compose up`. Live data is
 │       └── project_documentation.pdf  # Full project guide
 └── docker-compose.yml
 ```
+
+---
+
+## Key Design Decisions
+
+- **Medallion Architecture** — Raw, processed, and aggregated data live in separate HDFS layers. Any layer can be reprocessed without touching upstream data.
+- **EXTERNAL Hive tables** — Hive metadata is ephemeral (lost on container restart); data in HDFS is permanent. EXTERNAL tables ensure a metastore reset never deletes data.
+- **oom_score_adj: -1000 on HDFS nodes** — When Linux kills a process under memory pressure, it should kill a Spark executor (which retries automatically) rather than a DataNode (which can corrupt in-flight writes).
+- **HDFS replication factor 1** — Reduces memory pressure during heavy Spark writes on a memory-constrained machine. Acceptable trade-off for a development environment.
+- **Kafka between Finnhub and Spark** — Decouples the producer from 5 consumers; no trades lost when a consumer restarts; a single API connection fans out to all consumers.
+- **foreachBatch for streaming writes** — PostgreSQL JDBC is not a native Structured Streaming sink. foreachBatch provides a regular DataFrame per micro-batch that can be written anywhere, and also enables the stream-batch join pattern inside the loop.
